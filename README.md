@@ -68,10 +68,7 @@ Compared to **NetworkX's native algorithms**, our custom implementation delivers
 ---
 
 ### **Louvain Method**
-- **Purpose:** Hierarchical clustering by **maximizing modularity**.
-
-**Key Improvements:**  
-- Use of math-based methods to improve running time
+- Use of math-based methods to improve running time. [Source of the study linked here](https://users.ece.cmu.edu/~lowt/papers/Louvain_accepted.pdf)
 
 **⏱️ Performance Comparison:**  
 | Metric              | Custom Louvain | Pre-Implemented | Difference | % Improvement |
