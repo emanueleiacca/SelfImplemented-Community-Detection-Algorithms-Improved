@@ -1,0 +1,7 @@
+README.md
+setup.py
+SelfImplemented_Community_Detection_Algorithms_Improved.egg-info/PKG-INFO
+SelfImplemented_Community_Detection_Algorithms_Improved.egg-info/SOURCES.txt
+SelfImplemented_Community_Detection_Algorithms_Improved.egg-info/dependency_links.txt
+SelfImplemented_Community_Detection_Algorithms_Improved.egg-info/requires.txt
+SelfImplemented_Community_Detection_Algorithms_Improved.egg-info/top_level.txt
