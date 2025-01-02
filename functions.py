@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import copy
 import networkx as nx   
+from sklearn.preprocessing import normalize
+import numpy as np
 
 def find_connected_components(graph, method="dfs_recursive"):
     """
@@ -214,7 +216,7 @@ def calculate_betweenness_dijkstra(graph):
     
 # Source: https://memgraph.github.io/networkx-guide/algorithms/community-detection/girvan-newman/
 # Girvan-Newman Algorithm
-def Community_detection_algorithms(graph, betweenness_method="bfs", component_method="dfs_recursive"):
+def Girvan_Newman_methods(graph, betweenness_method="bfs", component_method="dfs_recursive"):
     """
     Algorithms for community detection.
     Args:
@@ -289,3 +291,230 @@ def visualize_communities(graph, communities, removed_edges=[]):
     plt.title("Girvan-Newman Communities")
     plt.axis("off")
     plt.show()
+
+# Spectral Clustering
+
+# KMeans and Kmeans++ for Section 2.3 for HW4
+# Source: https://github.com/emanueleiacca/ADM-HW4/blob/main/functions/functions.py#L329
+def initialize_centroids(data, k, method="random",seed=42):
+    """
+    Initialize centroids using the chosen method.
+    Parameters:
+        - data: NumPy array of data points.
+        - k: Number of clusters.
+        - method: "random" for basic initialization or "kmeans++" for K-me ()ans++ initialization.
+    """
+    if method == "random":
+        np.random.seed(seed)  # Set the random seed for reproducibility
+        # Randomly select k unique indices
+        indices = np.random.choice(data.shape[0], k, replace=False)
+        return data[indices]
+
+    elif method == "kmeans++":
+        np.random.seed(seed)
+        # K-means++ initialization
+        centroids = [data[np.random.choice(data.shape[0])]]  # First centroid randomly chosen
+        for _ in range(1, k):
+            # Compute distances from nearest centroid for all points
+            distances = np.min([np.linalg.norm(data - centroid, axis=1) for centroid in centroids], axis=0)
+            # Compute probabilities proportional to squared distances
+            probabilities = distances ** 2 / np.sum(distances ** 2)
+            # Choose next centroid based on probabilities
+            next_centroid_index = np.random.choice(data.shape[0], p=probabilities)
+            centroids.append(data[next_centroid_index])
+        return np.array(centroids)
+
+    else:
+        raise ValueError("Invalid method. Choose 'random' or 'kmeans++'.")
+
+def compute_distance(point, centroids):
+    """Compute the distance of a point to all centroids and return the nearest one."""
+    distances = np.linalg.norm(centroids - point, axis=1)
+    return np.argmin(distances)  # Return the index of the closest centroid
+
+def assign_clusters(data, centroids):
+    """Assign each point to the nearest centroid."""
+    clusters = []
+    for point in data:
+        cluster_id = compute_distance(point, centroids)
+        clusters.append(cluster_id)
+    return np.array(clusters)
+
+def update_centroids(data, clusters, k):
+    """Update centroids as the mean of points in each cluster."""
+    new_centroids = []
+    for cluster_id in range(k):
+        cluster_points = data[clusters == cluster_id]
+        if len(cluster_points) > 0:
+            new_centroids.append(cluster_points.mean(axis=0))
+        else:  # Handle empty cluster
+            new_centroids.append(np.zeros(data.shape[1]))
+    return np.array(new_centroids)
+
+def kmeans(data, k, method="random", max_iterations=100, tolerance=1e-4, seed = 42):
+    """
+    K-means clustering algorithm with option for basic or K-means++ initialization.
+    Parameters:
+        - data: NumPy array of data points.
+        - k: Number of clusters.
+        - method: "random" for basic K-means or "kmeans++" for K-means++.
+        - max_iterations: Maximum number of iterations.
+        - tolerance: Convergence tolerance.
+    """
+    # Initialize centroids
+    centroids = initialize_centroids(data, k, method=method)
+
+    for iteration in range(max_iterations):
+        # Assign clusters
+        clusters = assign_clusters(data, centroids)
+
+        # Update centroids
+        new_centroids = update_centroids(data, clusters, k)
+
+        # Check for convergence
+        if np.all(np.abs(new_centroids - centroids) < tolerance):
+            print(f"Converged at iteration {iteration}")
+            break
+
+        centroids = new_centroids
+
+    return centroids, clusters
+
+
+# Source: https://rahuljain788.medium.com/implementing-spectral-clustering-from-scratch-a-step-by-step-guide-9643e4836a76
+def spectral_clustering(graph, k):
+    """
+    Spectral Clustering on a graph using normalized Laplacian and custom K-means.
+    """
+    # Adjacency and Degree Matrices
+    adj_matrix, nodes = graph.adjacency_matrix()
+    degrees = np.diag(adj_matrix.sum(axis=1))
+
+    # Normalized Laplacian
+    D_inv_sqrt = np.diag(1.0 / np.sqrt(np.diag(degrees)))
+    D_inv_sqrt = np.nan_to_num(D_inv_sqrt)  # Handle division by zero
+    L = np.eye(len(nodes)) - D_inv_sqrt @ adj_matrix @ D_inv_sqrt
+
+    # Eigenvalue Decomposition
+    eigenvalues, eigenvectors = np.linalg.eigh(L)
+    sorted_indices = np.argsort(eigenvalues)  # Sort eigenvalues
+    eigenvalues = eigenvalues[sorted_indices]
+    eigenvectors = eigenvectors[:, sorted_indices]
+    
+    print("Sorted Eigenvalues:", eigenvalues[:k+1])
+
+    # Select and normalize eigenvectors corresponding to smallest non-trivial eigenvalues
+    k_smallest_eigenvectors = eigenvectors[:, 1:k+1]  # Skip the first trivial eigenvector
+    k_smallest_eigenvectors = normalize(k_smallest_eigenvectors, axis=1)
+
+    # Run K-Means Clustering
+    centroids, cluster_assignments = kmeans(k_smallest_eigenvectors, k, method="kmeans++", seed=42)
+
+    # Group Nodes into Communities
+    communities = defaultdict(list)
+    for i, cluster_id in enumerate(cluster_assignments):
+        communities[cluster_id].append(nodes[i])
+
+    return list(communities.values())
+
+# Louvain Algorithm
+
+# Source: https://users.ece.cmu.edu/~lowt/papers/Louvain_accepted.pdf
+
+def louvain_cluster(adj_matrix, max_iter=10):
+    """
+    Simplified version of the Louvain clustering algorithm using NumPy. 
+    The algorithm aims to detect communities in a graph by iteratively optimizing the modularity of the graph. 
+    """
+    n = adj_matrix.shape[0]  # Number of nodes
+    degrees = np.sum(adj_matrix, axis=1)
+    inv_m = 1.0 / np.sum(degrees)  # 2m for modularity normalization
+    communities = np.arange(n)  # Initialize each node in its own community
+
+    def modularity_gain(node, target_comm, curr_comm):
+        """Compute the modularity gain of moving 'node' to 'target_comm'."""
+        k_i = degrees[node]
+        delta_q = 0.0
+        # Direct Contributions
+        for neighbor, weight in enumerate(adj_matrix[node]): # It iterates over all neighbors of the node
+            if weight > 0:
+                # Depending by where the neighbor belongs, add edge weight to the modularity gain
+                if communities[neighbor] == target_comm:
+                    delta_q += weight
+                if communities[neighbor] == curr_comm:
+                    delta_q -= weight
+        # Indirect Contributions
+        # Compute the sum of degrees of nodes in the target and current communities
+        sum_in_target = np.sum(degrees[communities == target_comm])
+        sum_in_curr = np.sum(degrees[communities == curr_comm])
+        # Adjusted formula
+        delta_q -= k_i * (sum_in_target - k_i) * inv_m
+        delta_q += k_i * (sum_in_curr - k_i) * inv_m
+        return delta_q
+
+    # Iterative Community Refinement
+    for iteration in range(max_iter): # Either max_iter or until no nodes are moved
+        moved = False
+        for node in range(n): # for each node
+            curr_comm = communities[node]
+            max_gain = 0
+            best_comm = curr_comm
+ 
+            # Evaluate modularity gain for moving it to each neighboring community
+            for neighbor, weight in enumerate(adj_matrix[node]):
+                if weight > 0 and communities[neighbor] != curr_comm:
+                    target_comm = communities[neighbor]
+                    gain = modularity_gain(node, target_comm, curr_comm)
+                    if gain > max_gain:
+                        max_gain = gain
+                        best_comm = target_comm
+
+            # Reassign the node to the best community
+            if best_comm != curr_comm:
+                communities[node] = best_comm
+                moved = True
+
+        if not moved:  # Stop if no nodes were moved
+            break
+
+    return extract_communities(communities)
+
+def extract_communities(communities):
+    """Group nodes by their community assignments."""
+    community_groups = defaultdict(list)
+    for node, comm in enumerate(communities):
+        community_groups[comm].append(node)
+    return list(community_groups.values())
+
+# Additional Metrics
+
+def lambiotte_coefficient(adj_matrix, communities):
+    """
+    Compute the Lambiotte coefficient for each node.
+    """
+    n = adj_matrix.shape[0]
+    node_importance = {}
+
+    for community in communities: # For each community
+        for node in community: # For each node in the community
+            k_in = np.sum([adj_matrix[node, neighbor] for neighbor in community]) # Internal degree
+            k_total = np.sum(adj_matrix[node])  # Total degree
+            L = k_in / k_total if k_total > 0 else 0 # Lambiotte formula # Avoid division by zero
+            node_importance[node] = L
+    
+    return node_importance
+
+def clauset_parameter(adj_matrix, communities):
+    """
+    Compute Clauset's parameter for each community.
+    """
+    community_quality = {}
+
+    for idx, community in enumerate(communities): # For each community
+        E_in = sum(adj_matrix[i, j] for i in community for j in community if i != j) / 2  # Internal edges
+        E_out = sum(adj_matrix[i, j] for i in community for j in range(adj_matrix.shape[0]) if j not in community) # External edges
+        
+        Q = E_in / (E_in + E_out) if (E_in + E_out) > 0 else 0  # Clauset's formula # Avoid division by zero
+        community_quality[idx] = Q
+
+    return community_quality
