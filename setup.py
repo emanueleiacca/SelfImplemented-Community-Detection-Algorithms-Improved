@@ -16,6 +16,8 @@ setup(
     description='A custom library for community detection algorithms with optimized performance and flexibility',
     author='Emanuele Iaccarino',
     author_email='emanueleiaccarino.ei@gmail.com',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     url='https://github.com/emanueleiacca/SelfImplemented-Community-Detection-Algorithms-Improved',
     classifiers=[
         'Programming Language :: Python :: 3',
