@@ -2,6 +2,10 @@
 
 Now it's a library! Check out the implementation also on [Pypi link](https://pypi.org/project/SelfImplemented-Community-Detection-Algorithms-Improved/0.1.0/)
 
+```bash
+pip install SelfImplemented-Community-Detection-Algorithms-Improved==0.1.0
+```
+
 ## 📝 **Overview**
 This library implements **community detection algorithms** with a focus on:
 - **Performance Optimization**  
